@@ -1,15 +1,15 @@
 from torch import nn
 import torch.nn.functional as F
-from code.layers import GraphConvolution
+from layers import GraphConvolution
 
 
 class GNNr(nn.Module):
-    def __init__(self, num_feature, num_hidden, edge_type, dropout, adj):
+    def __init__(self, num_feature, num_hidden, num_edge_type, dropout, adj):
         super(GNNr, self).__init__()
         self.adj = adj
 
         self.m1 = GraphConvolution(num_feature, num_hidden, adj)
-        self.m2 = GraphConvolution(num_hidden, edge_type, adj)
+        self.m2 = GraphConvolution(num_hidden, num_edge_type, adj)
         self.dropout = dropout
 
     #     cuda待写
@@ -28,11 +28,11 @@ class GNNr(nn.Module):
 
 
 class GNNp(nn.Module):
-    def __init__(self, edge_type, num_hidden, num_class, dropout, adj):
+    def __init__(self, num_edge_type, num_hidden, num_class, dropout, adj):
         super(GNNp, self).__init__()
         self.adj = adj
 
-        self.m1 = GraphConvolution(edge_type, num_hidden, adj)
+        self.m1 = GraphConvolution(num_edge_type, num_hidden, adj)
         self.m2 = GraphConvolution(num_hidden, num_class, adj)
         self.dropout = dropout
 
