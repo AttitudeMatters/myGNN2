@@ -15,11 +15,11 @@ class GraphConvolution(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.adj = adj
-        self.weight = Parameter(torch.Tensor(self.in_size, self.out_size))
+        self.weight = Parameter(torch.Tensor(self.in_features, self.out_features))
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.out_size)
+        stdv = 1. / math.sqrt(self.out_features)
         self.weight.data.uniform_(-stdv, stdv)
 
     def forward(self, x):

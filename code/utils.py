@@ -3,6 +3,7 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 import math
 
+
 def load_data():
     dataset = Planetoid(root='data/cora', name='Cora', transform=NormalizeFeatures())
 
@@ -21,14 +22,14 @@ def load_data():
     test_mask = torch.zeros(labels.shape, dtype=bool)
 
     train_mask[:140] = 1
-    val_mask[140:140+500] = 1
-    test_mask[140+500:] = 1
+    val_mask[140:140 + 500] = 1
+    test_mask[140 + 500:] = 1
 
     return edge_index, features, labels, train_mask, val_mask, test_mask
 
-# permutation
+
+# combination
 def get_num_edge_type(n, r):
     if n < r:
         raise ValueError("n must be greater than or equal to r")
-    return math.factorial(n) // math.factorial(n - r)
-
+    return math.comb(n, r)
