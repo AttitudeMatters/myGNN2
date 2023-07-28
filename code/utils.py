@@ -5,7 +5,7 @@ import math
 
 
 def load_data():
-    dataset = Planetoid(root='data/cora', name='Cora', transform=NormalizeFeatures())
+    dataset = Planetoid(root='../data', name='Cora', transform=NormalizeFeatures())
 
     # Adjacency matrix
     edge_index = dataset[0].edge_index
