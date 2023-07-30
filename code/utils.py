@@ -33,3 +33,13 @@ def get_num_edge_type(n, r):
     if n < r:
         raise ValueError("n must be greater than or equal to r")
     return math.comb(n, r)
+
+def class_pairs_to_edge_type(num_classes):
+    edge_type_dict = {}
+    counter = 0
+    for i in range(num_classes):
+        for j in range(i, num_classes):  # we only traverse the upper triangle to ensure consistent types of undirected edges
+            edge_type_dict[(i, j)] = counter
+            edge_type_dict[(j, i)] = counter  # For undirected edges, we hope that (i, j) and (j, i) have the same type
+            counter += 1
+    return edge_type_dict
