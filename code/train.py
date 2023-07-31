@@ -31,20 +31,22 @@ adj, features, labels, idx_train, idx_val, idx_test = load_data()
 num_classes = labels.max().item() + 1
 num_edge_type = get_num_edge_type(num_classes, 2)
 num_nodes = labels.shape[0]
+num_edges = adj.shape[1]
+num_features = features.shape[1]
 
 idx_train = torch.arange(num_nodes)[idx_train]
 idx_dev = torch.arange(num_nodes)[idx_val]
 idx_test = torch.arange(num_nodes)[idx_test]
 idx_all = torch.arange(num_nodes)
 
-num_features = labels.shape[1]
-input_r = torch.zeros(num_nodes, num_features)
-target_r = torch.zeros(num_nodes, num_edge_type)
+
+input_r = torch.zeros(num_edges, num_features)
+target_r = torch.zeros(num_edges, num_edge_type)
 input_p = torch.zeros(num_nodes, num_edge_type)
 target_p = torch.zeros(num_nodes, num_classes)
 
 
-gnnr = GNNr(num_feature=features.shape[1],
+gnnr = GNNr(num_feature=num_features,
             num_hidden=args.hidden,
             num_edge_type=num_edge_type,
             dropout=args.dropout,
@@ -62,9 +64,6 @@ trainer_p = Trainer(args, gnnp)
 def init_r_data(edge_index, node_labels):
     # Assuming edge_index is a 2xn tensor, where n is the number of edges
     # and node_labels is a tensor of node class labels.
-
-    num_edges = edge_index.shape[1]
-    target_r = torch.zeros(num_edges, dtype=torch.long)
 
     # Define a mapping from a pair of classes to an edge type.
     # This can be a dictionary, where the key is a tuple of class labels
@@ -84,11 +83,10 @@ def init_r_data(edge_index, node_labels):
 
         target_r[i] = edge_type
 
-    return target_r
 
 def pre_train(epoches):
     best = 0.0
-    init_r_data()
+    init_r_data(adj, labels)
     results = []
     for epoch in range(epoches):
         loss = trainer_r.update_soft(input_r, target_r, idx_train)
@@ -100,4 +98,34 @@ def pre_train(epoches):
             state = dict([('model', copy.deepcopy(trainer_r.model.state_dict())), ('optim', copy.deepcopy(trainer_r.optimizer.state_dict()))])
     trainer_r.model.load_state_dict(state['model'])
     trainer_r.optimizer.load_state_dict(state['optim'])
+    return results
+
+
+def update_p_data():
+    pass
+
+
+def train_p(epoches):
+    update_p_data()
+    results = []
+    for epoch in range(epoches):
+        loss = trainer_p.update_soft(input_p, target_p, idx_all)
+        _, preds, accuracy_dev = trainer_p.evaluate(input_p, labels, idx_dev)
+        _, preds, accuracy_test = trainer_p.evaluate(input_p, labels, idx_test)
+        results += [(accuracy_dev, accuracy_test)]
+    return results
+
+
+def update_r_data():
+    pass
+
+
+def train_r(epoches):
+    update_r_data()
+    results = []
+    for epoch in range(epoches):
+        loss = trainer_r.update_soft(input_r, target_r, idx_all)
+        _, preds, accuracy_dev = trainer_r.evaluate(input_r, edge_type, idx_dev)
+        _, preds, accuracy_test = trainer_r.evaluate(input_r, edge_type, idx_test)
+        results += [(accuracy_dev, accuracy_test)]
     return results
