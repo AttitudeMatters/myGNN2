@@ -43,3 +43,15 @@ def class_pairs_to_edge_type(num_classes):
             edge_type_dict[(j, i)] = counter  # For undirected edges, we hope that (i, j) and (j, i) have the same type
             counter += 1
     return edge_type_dict
+
+
+def generate_edge_type(edge_index, node_labels, num_classes, num_edges):
+    edge_type_dict = class_pairs_to_edge_type(num_classes)
+    edge_types = torch.zeros(num_edges, dtype=torch.long)  # assuming edge types are represented as integers
+    for i in range(num_edges):
+        node1, node2 = edge_index[:, i]
+        class1, class2 = node_labels[node1], node_labels[node2]
+        class_pair = tuple(sorted((class1, class2)))
+        edge_type = edge_type_dict[class_pair]
+        edge_types[i] = edge_type
+    return edge_types

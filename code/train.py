@@ -8,6 +8,7 @@ import torch
 from trainer import Trainer
 from utils import *
 from models import *
+from attention import *
 
 # Training settings
 parser = argparse.ArgumentParser()
@@ -17,10 +18,12 @@ parser.add_argument('--no_cuda', action='store_true', default=False, help='Disab
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--lr', type=float, default=0.005, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay (L2 loss on parameters).')
+parser.add_argument('--outdim', type=int, default=128, help='Outdim for the node and semantic attention.')
 
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
+out_dim = args.outdim
 
 random.seed(args.seed)
 np.random.seed(args.seed)
@@ -47,6 +50,7 @@ target_r = torch.zeros(num_edges, num_edge_type)
 input_p = torch.zeros(num_nodes, num_edge_type)
 target_p = torch.zeros(num_nodes, num_classes)
 
+edge_types = generate_edge_type(adj, labels, num_classes, num_edges)
 
 gnnr = GNNr(num_feature=num_features,
             num_hidden=args.hidden,
@@ -107,7 +111,34 @@ def pre_train(epoches):
 
 
 def update_p_data():
-    pass
+    # Get the edge type predictions from GNNr model
+    edge_type_preds = trainer_r.predict(input_r)
+
+    # Initialize a list to store the node representations for each type of subgraph
+    subgraph_node_representations = []
+
+    # Iterate over all edge types
+    for edge_type in edge_types:
+        # Create a subgraph based on the current edge type
+        subgraph = create_subgraph_based_on_edge_type(adj, edge_type_preds, edge_type)
+
+        # Apply Node-level Attention Mechanism on each subgraph
+        node_attention = NodeAttention(num_features, out_dim)
+        node_repr = node_attention(subgraph)
+
+        subgraph_node_representations.append(node_repr)
+
+    # Compute semantic-level attention scores
+    semantic_attention = SemanticAttention(out_dim, 1)
+    semantic_scores = semantic_attention(torch.stack(subgraph_node_representations))
+
+    # Combine the node representations of each subgraph according to semantic-level attention scores
+    combined_node_repr = torch.zeros(num_nodes, out_dim)
+    for semantic_score, node_repr in zip(semantic_scores, subgraph_node_representations):
+        combined_node_repr += semantic_score * node_repr
+
+    # Update input_p
+    input_p = combined_node_repr
 
 
 def train_p(epoches):
@@ -148,25 +179,12 @@ def update_r_data():
         target_r[i] = edge_type
 
 
-def generate_edge_type(edge_index, node_labels):
-    edge_type_dict = class_pairs_to_edge_type(num_classes)
-    edge_types = torch.zeros(num_edges, dtype=torch.long)  # assuming edge types are represented as integers
-    for i in range(num_edges):
-        node1, node2 = edge_index[:, i]
-        class1, class2 = node_labels[node1], node_labels[node2]
-        class_pair = tuple(sorted((class1, class2)))
-        edge_type = edge_type_dict[class_pair]
-        edge_types[i] = edge_type
-    return edge_types
-
-
 def train_r(epoches):
     update_r_data()
-    edge_type = generate_edge_type(adj, labels)
     results = []
     for epoch in range(epoches):
         loss = trainer_r.update_soft(input_r, target_r, idx_all)
-        _, preds, accuracy_dev = trainer_r.evaluate(input_r, edge_type, idx_dev)
-        _, preds, accuracy_test = trainer_r.evaluate(input_r, edge_type, idx_test)
+        _, preds, accuracy_dev = trainer_r.evaluate(input_r, edge_types, idx_dev)
+        _, preds, accuracy_test = trainer_r.evaluate(input_r, edge_types, idx_test)
         results += [(accuracy_dev, accuracy_test)]
     return results
