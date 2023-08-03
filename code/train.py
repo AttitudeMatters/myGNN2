@@ -15,6 +15,8 @@ parser.add_argument('--hidden', type=int, default=16, help='Number of hidden uni
 parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
 parser.add_argument('--no_cuda', action='store_true', default=False, help='Disables CUDA training.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
+parser.add_argument('--lr', type=float, default=0.005, help='Initial learning rate.')
+parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay (L2 loss on parameters).')
 
 
 args = parser.parse_args()
@@ -61,6 +63,7 @@ gnnp = GNNp(num_edge_type=num_edge_type,
 trainer_r = Trainer(args, gnnr)
 trainer_p = Trainer(args, gnnp)
 
+
 def init_r_data(edge_index, node_labels):
     # Assuming edge_index is a 2xn tensor, where n is the number of edges
     # and node_labels is a tensor of node class labels.
@@ -81,7 +84,9 @@ def init_r_data(edge_index, node_labels):
         # Get the edge type
         edge_type = edge_type_dict[class_pair]
 
-        target_r[i] = edge_type
+        # Initialize the target_r for this edge with a one-hot encoding of the edge type
+        target_r[i] = 0
+        target_r[i, edge_type] = 1
 
 
 def pre_train(epoches):
@@ -117,11 +122,47 @@ def train_p(epoches):
 
 
 def update_r_data():
-    pass
+    # Get predictions from GNNp model
+    preds = trainer_p.predict(input_p)
+
+    # Select the class with highest confidence as the new label for each node
+    _, new_labels = preds.max(dim=-1)
+
+    # Add new labels to the current node labels
+    node_labels_confident = new_labels
+
+    # Update input_r using new node labels
+    for i in range(num_nodes):
+        class_ = node_labels_confident[i]
+        input_r[i] = class_
+
+    # Calculate prototype for each class
+    # TODO: implement this according to your model and data
+    prototypes = calculate_prototypes(node_labels_confident)
+
+    # Update target_r using attention mechanism with prototypes
+    for i in range(num_edges):
+        node1, node2 = labels[:, i]
+        # TODO: implement the attention mechanism according to your model
+        edge_type = calculate_edge_type_with_attention(node1, node2, prototypes)
+        target_r[i] = edge_type
+
+
+def generate_edge_type(edge_index, node_labels):
+    edge_type_dict = class_pairs_to_edge_type(num_classes)
+    edge_types = torch.zeros(num_edges, dtype=torch.long)  # assuming edge types are represented as integers
+    for i in range(num_edges):
+        node1, node2 = edge_index[:, i]
+        class1, class2 = node_labels[node1], node_labels[node2]
+        class_pair = tuple(sorted((class1, class2)))
+        edge_type = edge_type_dict[class_pair]
+        edge_types[i] = edge_type
+    return edge_types
 
 
 def train_r(epoches):
     update_r_data()
+    edge_type = generate_edge_type(adj, labels)
     results = []
     for epoch in range(epoches):
         loss = trainer_r.update_soft(input_r, target_r, idx_all)
