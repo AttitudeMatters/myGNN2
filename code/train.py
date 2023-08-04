@@ -19,6 +19,10 @@ parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--lr', type=float, default=0.005, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--outdim', type=int, default=128, help='Outdim for the node and semantic attention.')
+parser.add_argument('--pre_epoch', type=int, default=200, help='Number of pre-training epochs.')
+parser.add_argument('--iter', type=int, default=10, help='Number of training iterations.')
+parser.add_argument('--epoch', type=int, default=200, help='Number of training epochs per iteration.')
+parser.add_argument('--save', type=str, default='/')
 
 
 args = parser.parse_args()
@@ -188,3 +192,25 @@ def train_r(epoches):
         _, preds, accuracy_test = trainer_r.evaluate(input_r, edge_types, idx_test)
         results += [(accuracy_dev, accuracy_test)]
     return results
+
+
+base_results, r_results, p_results = [], [], []
+base_results += pre_train(args.pre_epoch)
+for k in range(args.iter):
+    p_results += train_p(args.epoch)
+    r_results += train_r(args.epoch)
+
+def get_accuracy(results):
+    best_dev, acc_test = 0.0, 0.0
+    for d, t in results:
+        if d > best_dev:
+            best_dev, acc_test = d, t
+    return acc_test
+
+acc_test = get_accuracy(r_results)
+
+print('{:.3f}'.format(acc_test * 100))
+
+if args.save != '/':
+    trainer_r.save(args.save + '/gnnr.pt')
+    trainer_p.save(args.save + '/gnnp.pt')
