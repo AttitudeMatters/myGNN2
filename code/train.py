@@ -156,37 +156,64 @@ def train_p(epoches):
     return results
 
 
-def update_r_data():
-    # Get predictions from GNNp model
-    preds = trainer_p.predict(input_p)
+def calculate_confidence_threshold(epoch, start_threshold=0.9, end_threshold=0.5, total_epochs=100):
+    """
+    Calculate a linearly decreasing confidence threshold based on the current epoch.
+    """
+    threshold_decrease = (start_threshold - end_threshold) / total_epochs
+    return start_threshold - threshold_decrease * epoch
 
-    # Select the class with highest confidence as the new label for each node
-    _, new_labels = preds.max(dim=-1)
 
-    # Add new labels to the current node labels
-    node_labels_confident = new_labels
 
-    # Update input_r using new node labels
-    for i in range(num_nodes):
-        class_ = node_labels_confident[i]
-        input_r[i] = class_
+def update_confident_labels(node_label_preds, epoch):
+    # Dynamically calculate the confidence threshold based on the current epoch
+    confidence_threshold = calculate_confidence_threshold(epoch)
 
-    # Calculate prototype for each class
-    # TODO: implement this according to your model and data
-    prototypes = calculate_prototypes(node_labels_confident)
+    # Get the maximum predicted probability for each node
+    max_probs, max_labels = torch.max(node_label_preds, dim=1)
 
-    # Update target_r using attention mechanism with prototypes
-    for i in range(num_edges):
-        node1, node2 = labels[:, i]
-        # TODO: implement the attention mechanism according to your model
-        edge_type = calculate_edge_type_with_attention(node1, node2, prototypes)
-        target_r[i] = edge_type
+    # Only update the labels that are confident
+    node_labels_confident = torch.where(max_probs > confidence_threshold, max_labels, -1)
+
+    return node_labels_confident
+
+
+def update_r_data(node_representations, validation_performance):
+    # Get the node label predictions from GNNp model
+    node_label_preds = trainer_p.predict(input_p)
+
+    # Update the node labels that are confident
+    node_labels_confident = update_confident_labels(node_label_preds, validation_performance)
+
+    # Calculate the prototypes for each class
+    prototypes = calculate_prototypes(node_labels_confident, node_representations)
+
+    # Initialize the adjacency matrix for GNNr
+    adj_r = torch.zeros(num_nodes, num_nodes)
+
+    # Iterate over all pairs of nodes
+    for node1 in range(num_nodes):
+        for node2 in range(node1 + 1, num_nodes):
+            # Calculate the new edge type with attention mechanism
+            edge_type = calculate_edge_type_with_attention(node1, node2, prototypes, node_representations)
+
+            # Update the adjacency matrix
+            adj_r[node1, node2] = edge_type
+            adj_r[node2, node1] = edge_type
+
+    # Update input_r
+    input_r = adj_r
+
+    return input_r
+
 
 
 def train_r(epoches):
-    update_r_data()
     results = []
     for epoch in range(epoches):
+        # Train GNNr model
+        node_representations = update_p_data()
+        input_r = update_r_data(node_representations, epoch)
         loss = trainer_r.update_soft(input_r, target_r, idx_all)
         _, preds, accuracy_dev = trainer_r.evaluate(input_r, edge_types, idx_dev)
         _, preds, accuracy_test = trainer_r.evaluate(input_r, edge_types, idx_test)
