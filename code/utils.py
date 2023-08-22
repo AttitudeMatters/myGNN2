@@ -33,7 +33,7 @@ def load_data():
 def get_num_edge_type(n, r):
     if n < r:
         raise ValueError("n must be greater than or equal to r")
-    return math.comb(n, r)
+    return math.comb(n, r) + n # count (0,0), (1,1)...
 
 def class_pairs_to_edge_type(num_classes):
     edge_type_dict = {}
@@ -56,8 +56,6 @@ def generate_edge_type(edge_index, node_labels, num_classes, num_edges):
         # class_pair = tuple(sorted((class1, class2)))
         edge_type = edge_type_dict[class_pair]
         edge_types[i] = edge_type
-        print(i)
-    print("s")
     return edge_types
 
 

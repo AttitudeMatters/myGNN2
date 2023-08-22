@@ -95,6 +95,8 @@ def init_r_data(edge_index, node_labels):
 
         # Initialize the target_r for this edge with a one-hot encoding of the edge type
         target_r[i] = 0
+        # target_r = torch.zeros(num_edges, num_edge_type)
+        print(i)
         target_r[i, edge_type] = 1
 
 
