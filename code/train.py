@@ -87,7 +87,8 @@ def init_r_data(edge_index, node_labels):
         class1, class2 = node_labels[node1], node_labels[node2]
 
         # Ensure the pair of classes is in a consistent order
-        class_pair = tuple(sorted((class1, class2)))
+        class_pair = tuple(sorted((class1.item(), class2.item())))
+        # class_pair = tuple(sorted((class1, class2)))
 
         # Get the edge type
         edge_type = edge_type_dict[class_pair]
