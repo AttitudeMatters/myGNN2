@@ -52,7 +52,7 @@ def generate_edge_type(edge_index, node_labels, num_classes, num_edges):
     for i in range(num_edges):
         node1, node2 = edge_index[:, i]
         class1, class2 = node_labels[node1], node_labels[node2]
-        class_pair = tuple(sorted((class1, class2)))
+        class_pair = tuple(sorted((class1.item(), class2.item())))
         edge_type = edge_type_dict[class_pair]
         edge_types[i] = edge_type
     return edge_types
