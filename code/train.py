@@ -81,8 +81,8 @@ def init_r_data(edge_index, node_labels):
     # and the value is the corresponding edge type.
     edge_type_dict = class_pairs_to_edge_type(num_classes)
 
-    # Iterate over all edges
-    for i in range(num_edges):
+    # Iterate over edges to be trained
+    for i in range(idx_train):
         node1, node2 = edge_index[:, i]
         class1, class2 = node_labels[node1], node_labels[node2]
 
